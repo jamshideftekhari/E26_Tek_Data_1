@@ -1,0 +1,52 @@
+services:
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./mysql-init:/docker-entrypoint-initdb.d
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3308:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  teacher-service:
+    build: ./teacher-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@mysql:3306/course_db
+      MANAGEMENT_SERVICE_URL: http://management-service:8003
+    ports:
+      - "8001:8001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  student-service:
+    build: ./student-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@mysql:3306/student_db
+      MANAGEMENT_SERVICE_URL: http://management-service:8003
+    ports:
+      - "8002:8002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  management-service:
+    build: ./management-service
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@mysql:3306/management_db
+      TEACHER_SERVICE_URL: http://teacher-service:8001
+      STUDENT_SERVICE_URL: http://student-service:8002
+    ports:
+      - "8003:8003"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql-data:
